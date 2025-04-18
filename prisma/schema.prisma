@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String         @id @default(uuid())
+  email            String         @unique
+  passwordHash     String
+  name             String
+  role             String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  adminLogs        AdminLog[]
+  complaints       Complaint[]
+  donors           Donor?
+  messagesReceived Message[]      @relation("MessageReceiver")
+  messagesSent     Message[]      @relation("MessageSender")
+  ngos             Ngo?
+  notifications    Notification[]
+  reports          Report[]
+  userSessions     UserSession[]
+  volunteers       Volunteer?
+}
+
+model Donor {
+  id                      String         @id @default(uuid())
+  userId                  String         @unique
+  businessName            String
+  businessLicense         String?
+  address                 String
+  phone                   String
+  isVerified              Boolean        @default(false)
+  verificationDocumentUrl String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  user                    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodDonations           FoodDonation[]
+}
+
+model Ngo {
+  id                 String         @id @default(uuid())
+  userId             String         @unique
+  registrationNumber String
+  serviceArea        String
+  capacity           Int
+  address            String
+  phone              String
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  feedbacks          Feedback[]
+  foodDonations      FoodDonation[]
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Volunteer {
+  id                   String                @id @default(uuid())
+  userId               String                @unique
+  phone                String
+  address              String
+  availability         String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  volunteerAssignments VolunteerAssignment[]
+}
+
+model FoodDonation {
+  id              String          @id @default(uuid())
+  donorId         String
+  ngoId           String?
+  status          String
+  pickupTime      DateTime?
+  expiryDate      DateTime
+  pickupAddress   String
+  description     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  donationImages  DonationImage[]
+  feedbacks       Feedback[]
+  donor           Donor           @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  ngo             Ngo?            @relation(fields: [ngoId], references: [id])
+  foodItems       FoodItem[]
+  pickupSchedules PickupSchedule?
+}
+
+model FoodItem {
+  id         String       @id @default(uuid())
+  donationId String
+  name       String
+  quantity   Float
+  unit       String
+  category   String
+  allergens  String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  donation   FoodDonation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+}
+
+model PickupSchedule {
+  id                   String                @id @default(uuid())
+  donationId           String                @unique
+  scheduledTime        DateTime
+  actualTime           DateTime?
+  status               String
+  notes                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  donation             FoodDonation          @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  volunteerAssignments VolunteerAssignment[]
+}
+
+model VolunteerAssignment {
+  id               String         @id @default(uuid())
+  volunteerId      String
+  pickupScheduleId String
+  status           String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  pickupSchedule   PickupSchedule @relation(fields: [pickupScheduleId], references: [id], onDelete: Cascade)
+  volunteer        Volunteer      @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+}
+
+model Feedback {
+  id         String       @id @default(uuid())
+  donationId String
+  ngoId      String
+  rating     Int
+  comment    String?
+  createdAt  DateTime     @default(now())
+  donation   FoodDonation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  ngo        Ngo          @relation(fields: [ngoId], references: [id], onDelete: Cascade)
+}
+
+model DonationImage {
+  id         String       @id @default(uuid())
+  donationId String
+  imageUrl   String
+  createdAt  DateTime     @default(now())
+  donation   FoodDonation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+}
+
+model Complaint {
+  id          String   @id @default(uuid())
+  userId      String
+  subject     String
+  description String
+  status      String
+  resolvedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  receiver   User     @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  message   String
+  seen      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserSession {
+  id         String    @id @default(uuid())
+  userId     String
+  loginTime  DateTime  @default(now())
+  logoutTime DateTime?
+  ipAddress  String?
+  userAgent  String?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id         String   @id @default(uuid())
+  adminId    String
+  reportType String
+  reportData Json
+  createdAt  DateTime @default(now())
+  admin      User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model AdminLog {
+  id          String   @id @default(uuid())
+  adminId     String
+  action      String
+  targetTable String
+  targetId    String?
+  details     Json?
+  timestamp   DateTime @default(now())
+  admin       User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
